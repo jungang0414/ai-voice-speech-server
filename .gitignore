@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+
+# Ignore Firebase admin key
+ai-voice-speech-Key.json
 
 # Editor directories and files
 .vscode/*
