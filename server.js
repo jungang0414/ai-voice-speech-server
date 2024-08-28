@@ -22,6 +22,11 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+// Gemini API
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+//Api-key 
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+
 app.get("/", function (req, res) {
     try {
         console.log("Request successful");
@@ -86,23 +91,36 @@ app.get("/api/v1/singleNews", async (req, res) => {
 
             const newsCollection = db.collection("singleNews");
 
+            //Gemini AI model
+            const model = genAI.getGenerativeModel({
+                model: "gemini-1.5-flash",
+                systemInstruction: "請使用繁體中文改寫文章內容，請摘要內容的重點並將字數限制在100個字以內。"
+            });
+
             const id = newsData.Id;
             const name = newsData.Name || "最新一則文章";
             const modifyDate = newsData.ModifyDate;
-            const content = newsData.Properties[6].value.replace(
+            const content = newsData.Properties[6].value;
+            const cleanedContent = newsData.Properties[6].value.replace(
                 /<\/?[^>]+(>|$)/g,
                 ""
             );
-            const cleanedContent = "修改後的文章"
+
+            // 提示詞 & 正規化後的新聞內容素材
+            const prompt = `${cleanedContent}`
+
+            const result = await model.generateContent(prompt);
+            const aiResponse = await result.response;
+            const text = aiResponse.text(); //儲存AI 處理完後的文章
+
             const q = await newsCollection.where('id', '==', id).get();
-
             if (q.empty) {
-
+                //如果沒有相同數據，則加入
                 await newsCollection.add({
                     id: id,
                     name: name,
                     content: content,
-                    cleanedContent: cleanedContent,
+                    cleanedContent: text,
                     modifyDate: modifyDate,
                 })
             } else {

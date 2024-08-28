@@ -33,3 +33,23 @@ Database: 當使用者於前端與後端溝通時，將後端抓取的資料寫�
 [官網](https://www.npmjs.com/package/dotenv)
 
 協助設定環境變數的npm套件，避免未來上線後將自身密鑰公開出去。
+
+#### Gemini AI
+
+- 參考資料
+[官網](https://ai.google.dev/)
+[Google AI for Developers](https://ai.google.dev/api?_gl=1*1fabdu8*_ga*MTcwNDk3NTM3Ny4xNzI0MjExODgz*_ga_P1DBVKWT6V*MTcyNDgzNjgzMS41LjEuMTcyNDgzNjg3NS4xNi4wLjE0MDA1MzE3NzE.&hl=zh-tw&lang=node#set-up-api-key)
+
+- 安裝 Gemini API SDK 套件
+```
+npm install @google/generative-ai
+```
+
+- 初始化&設定API金鑰 
+```
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI(process.env.API_KEY);
+
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+```
