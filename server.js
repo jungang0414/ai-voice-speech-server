@@ -74,5 +74,46 @@ app.get("/api/v1/AllNews", async (req, res) => {
         });
 })
 
+app.get("/api/v1/singleNews", async (req, res) => {
+    const today = new Date().toISOString().replaceAll("-", "/").split("T")[0]
+
+    const url = `https://www.taichung.gov.tw/umbraco/Export/ExportDataApi/GetData?contentId=9962&startDate=${today}&endDate=${today}&rows=500&dateAlias=`;
+
+    fetch(url)
+        .then((res) => res.json())
+        .then(async (data) => {
+            const newsData = data.Children[0];
+
+            const newsCollection = db.collection("singleNews");
+
+            const id = newsData.Id;
+            const name = newsData.Name || "最新一則文章";
+            const modifyDate = newsData.ModifyDate;
+            const content = newsData.Properties[6].value.replace(
+                /<\/?[^>]+(>|$)/g,
+                ""
+            );
+            const cleanedContent = "修改後的文章"
+            const q = await newsCollection.where('id', '==', id).get();
+
+            if (q.empty) {
+
+                await newsCollection.add({
+                    id: id,
+                    name: name,
+                    content: content,
+                    cleanedContent: cleanedContent,
+                    modifyDate: modifyDate,
+                })
+            } else {
+                console.log("Item already exists in Firestore:", id);
+            }
+            res.json({ message: "資料寫入成功" })
+        }).catch((error) => {
+            res.status(500).send(error);
+            console.log(error);
+        })
+})
+
 
 app.listen(3000, console.log(`running on ${3000}`));
