@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const fs = require('fs');
+const path = require('path');
 // cors預設所有跨域的請求都接受
 app.use(cors());
 app.use(express.json());
@@ -17,15 +19,20 @@ try {
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://ai-voice-speech.firebaseio.com"
+    databaseURL: "https://ai-voice-speech.firebaseio.com",
+    storageBucket: "ai-voice-speech.appspot.com"
 })
 
 const db = admin.firestore();
+const storage = admin.storage();
 
 // Gemini API
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 //Api-key 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+
+// Azure Speech
+var sdk = require("microsoft-cognitiveservices-speech-sdk");
 
 app.get("/", function (req, res) {
     try {
@@ -133,5 +140,79 @@ app.get("/api/v1/singleNews", async (req, res) => {
         })
 })
 
+app.post('/api/v1/createVoice', async (req, res) => {
+    const { title, text } = req.body;
+
+    if (!title) {
+        return res.status(400).json({ error: "Title is required" })
+    }
+
+    //AI Speech SDK
+
+    try {
+        const audioFile = `${title}.wav`
+        // 設定金鑰、區域
+        const speechConfig = sdk.SpeechConfig.fromSubscription(process.env.SPEECH_CONFIG_API_KEY, process.env.SPEECH_CONFIG_ROGIN);
+        const audioConfig = sdk.AudioConfig.fromAudioFileOutput(audioFile);
+
+        //使用的聲音模型
+        speechConfig.speechSynthesisVoiceName = "zh-TW-YunJheNeural";
+
+        //創建語音合成模型
+        const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+
+        //啟動語音合成模型
+        synthesizer.speakTextAsync(text,
+            function (result) {
+                if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+                    console.log("finished.");
+
+                    // 將生成的音源檔案上傳至 Firebase Storage
+                    // 生成音源檔案的路徑
+                    const uploadPath = path.join(__dirname, audioFile); // __dirname: 表示目前執行的腳本所在目錄
+
+                    fs.access(uploadPath, fs.constants.F_OK, async (err) => {
+                        if (err) {
+                            console.log("檔案不存在: ", err);
+                            res.status(500).json({ error: "找不到檔案" })
+                            return;
+                        }
+
+                        //等待上傳至Storage
+                        await storage.bucket().upload(uploadPath, {
+                            destination: `audio/${audioFile}`,
+                            metadata: {
+                                contentType: "auido/wav",
+                            },
+                        });
+
+                        const file = storage.bucket().file(`audio/${audioFile}`);
+                        const [url] = await file.getSignedUrl({
+                            action: "read",
+                            expires: "03-09-2025"
+                        });
+
+                        fs.unlinkSync(uploadPath);
+
+                        res.json({ message: "文字合成音源成功" })
+                    });
+                } else {
+                    console.error("Speech synthesis canceled, " + result.errorDetails +
+                        "\nDid you set the speech resource key and region values?");
+                    res.status(500).json({ error: 'Speech synthesis failed', details: result.errorDetails });
+                }
+                synthesizer.close();
+            },
+            function (err) {
+                console.trace("err - " + err);
+                synthesizer.close();
+                res.status(500).json({ error: 'Speech synthesis error', details: err });
+            });
+        console.log("合成音源: " + audioFile);
+    } catch (error) {
+        console.error("Error saving text:", error);
+        res.status(500).json("Error saving text");
+    }
+})
 
 app.listen(3000, console.log(`running on ${3000}`));

@@ -53,3 +53,75 @@ const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 ```
+
+#### Azure Speech Studio
+
+- 參考資料
+[官網](https://speech.microsoft.com/portal)
+[說明文件](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-started-text-to-speech?tabs=windows%2Cterminal&pivots=programming-language-javascript)
+
+- 安裝 Speech SDK
+```
+npm install microsoft-cognitiveservices-speech-sdk
+```
+
+- 初始化&使用
+```
+(function() {
+
+    "use strict";
+
+    var sdk = require("microsoft-cognitiveservices-speech-sdk");
+    var readline = require("readline");
+
+    var audioFile = "YourAudioFile.wav";
+    // This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
+    const speechConfig = sdk.SpeechConfig.fromSubscription(process.env.SPEECH_KEY, process.env.SPEECH_REGION);
+    const audioConfig = sdk.AudioConfig.fromAudioFileOutput(audioFile);
+
+    // The language of the voice that speaks.
+    speechConfig.speechSynthesisVoiceName = "en-US-AvaMultilingualNeural"; 
+
+    // Create the speech synthesizer.
+    var synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+
+    var rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question("Enter some text that you want to speak >\n> ", function (text) {
+      rl.close();
+      // Start the synthesizer and wait for a result.
+      synthesizer.speakTextAsync(text,
+          function (result) {
+        if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+          console.log("synthesis finished.");
+        } else {
+          console.error("Speech synthesis canceled, " + result.errorDetails +
+              "\nDid you set the speech resource key and region values?");
+        }
+        synthesizer.close();
+        synthesizer = null;
+      },
+          function (err) {
+        console.trace("err - " + err);
+        synthesizer.close();
+        synthesizer = null;
+      });
+      console.log("Now synthesizing to: " + audioFile);
+    });
+}());
+```
+
+#### fs
+操作實體檔案，可以同步或非同步存取檔案系統操作。
+
+- 參考資料
+https://www.runoob.com/nodejs/nodejs-fs.html
+
+#### path
+提供了一種處理目錄和檔案路徑的方法。
+
+- 參考資料
+https://www.w3schools.com/nodejs/met_path_join.asp
